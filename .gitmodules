@@ -1,0 +1,6 @@
+[submodule "lib/lis2dh"]
+	path = lib/lis2dh
+	url = https://github.com/sparkfun/SparkFun_LIS2DH12_Arduino_Library
+[submodule "lib/ulog"]
+	path = lib/ulog
+	url = https://github.com/rdpoor/ulog
