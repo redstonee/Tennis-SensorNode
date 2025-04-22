@@ -26,7 +26,5 @@ constexpr uint8_t LORA_LIGHT_NODE_ADDRESS = 0xFF;  // Address of the light node
 constexpr uint8_t LORA_SENSOR_ADDRESS_BASE = 0x10; // Default address of the sensor node
 
 constexpr uint8_t LORA_CHANNEL = 45;           // Channel of the nodes
-constexpr uint8_t LORA_NETWORK_ID = 0x11;      // Network ID of the nodes
 constexpr auto LORA_DATA_MIN_INTERVAL = 1000;  // Minimum interval between data packets in ms
 constexpr auto LORA_HEARTBEAT_INTERVAL = 3000; // Heartbeat interval in ms
-constexpr uint8_t LORA_HEARTBEAT_DATA = 0x55;  // Heartbeat data byte

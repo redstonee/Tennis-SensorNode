@@ -5,6 +5,12 @@
 #include <ulog.h>
 #include "config.h"
 
+extern "C"
+{
+    extern const uint8_t sensorID; // Sensor ID
+    extern const uint8_t netID;    // Network ID of the nodes
+}
+
 class LoraModule
 {
 private:
@@ -33,17 +39,7 @@ private:
         uint8_t cryptL;
     } moduleRegs;
 
-    static constexpr ModuleRegs defaultRegs = {
-        .addH = 0x00,
-        .addL = LORA_SENSOR_ADDRESS_BASE,
-        .netId = LORA_NETWORK_ID,
-        .cfg0 = 0b01100000, // 9600bps, 8N1, 2.4kbps
-        .cfg1 = 0b00100000, // 240 bytes, LDO, No RSSI, Max power
-        .channel = LORA_DONGLE_ADDRESS,
-        .cfg3 = 0b01000000, // No RSSI, P2P mode, No relay, No LBT
-        .cryptH = 0x00,
-        .cryptL = 0x00,
-    };
+    static const ModuleRegs defaultRegs;
 
     inline uint8_t indexOfRegs(uint8_t &reg)
     {
@@ -229,24 +225,16 @@ public:
      */
     inline bool begin()
     {
-        ModuleRegs savedConfig;
-        if (!loadCfg(savedConfig)) // Load config from EEPROM
-        {
-            ULOG_WARNING("No lora config found, using default config");
-            savedConfig = defaultRegs;
-            // saveCfg(defaultRegs);
-        }
-
         if (!readAllRegs())
         {
             ULOG_ERROR("Failed to read lora registers");
             return false;
         }
 
-        if (memcmp(&moduleRegs, &savedConfig, sizeof(ModuleRegs)))
+        if (memcmp(&moduleRegs, &defaultRegs, sizeof(ModuleRegs)))
         {
             ULOG_WARNING("Lora registers are different from saved config, applying the saved config");
-            moduleRegs = savedConfig;
+            moduleRegs = defaultRegs;
             if (!writeAllRegs())
             {
                 ULOG_ERROR("Failed to write lora registers");
@@ -310,7 +298,7 @@ public:
      * @param size Size of the data
      * @note The module must be in P2P mode
      */
-    inline void sendP2P(uint16_t addr, uint8_t channel, uint8_t *data, size_t size)
+    inline void sendP2P(const uint16_t addr, const uint8_t channel, const uint8_t *data, size_t size)
     {
         loraSerial.write(addr >> 8);
         loraSerial.write(addr & 0xFF);
@@ -326,7 +314,7 @@ public:
      * @param data Data vector to send
      * @note The module must be in P2P mode
      */
-    inline void sendP2P(uint16_t addr, uint8_t channel, std::vector<uint8_t> data)
+    inline void sendP2P(const uint16_t addr, const uint8_t channel, const std::vector<uint8_t> data)
     {
         sendP2P(addr, channel, data.data(), data.size());
     }
@@ -339,7 +327,7 @@ public:
      * @param byte Data byte to send
      * @note The module must be in P2P mode
      */
-    inline void sendP2P(uint16_t addr, uint8_t channel, uint8_t byte)
+    inline void sendP2P(const uint16_t addr, const uint8_t channel, const uint8_t byte)
     {
         loraSerial.write(addr >> 8);
         loraSerial.write(addr & 0xFF);
@@ -354,7 +342,7 @@ public:
      * @param size Size of the data
      * @note The module must be in broadcast mode
      */
-    inline void sendBroadcast(uint8_t *data, size_t size)
+    inline void sendBroadcast(const uint8_t *data, const size_t size)
     {
         loraSerial.write(data, size);
     }
@@ -365,10 +353,22 @@ public:
      * @param data Data vector to send
      * @note The module must be in broadcast mode
      */
-    inline void sendBroadcast(std::vector<uint8_t> data)
+    inline void sendBroadcast(const std::vector<uint8_t> data)
     {
         sendBroadcast(data.data(), data.size());
     }
 
     void receive(char *data, int size) {}
+};
+
+const LoraModule::ModuleRegs LoraModule::defaultRegs = {
+    .addH = 0x00,
+    .addL = LORA_SENSOR_ADDRESS_BASE + sensorID,
+    .netId = netID,
+    .cfg0 = 0b01100000, // 9600bps, 8N1, 2.4kbps
+    .cfg1 = 0b00100000, // 240 bytes, LDO, No RSSI, Max power
+    .channel = LORA_DONGLE_ADDRESS,
+    .cfg3 = 0b01000000, // No RSSI, P2P mode, No relay, No LBT
+    .cryptH = 0x00,
+    .cryptL = 0x00,
 };

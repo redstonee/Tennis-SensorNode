@@ -11,7 +11,6 @@ static SPARKFUN_LIS2DH12 accel;
 static TwoWire accelWire(I2C2_SDA_PIN, I2C2_SCL_PIN);
 
 static LoraModule lora(Serial1, UART1_TX_PIN, UART1_RX_PIN, LORA_M0_PIN, LORA_M1_PIN);
-static int16_t sensorID;
 
 void setup()
 {
@@ -32,8 +31,7 @@ void setup()
     while (1)
       ;
   }
-  ULOG_INFO("Lora module initialized");
-  sensorID = lora.getAddr() - LORA_SENSOR_ADDRESS_BASE;
+  ULOG_INFO("Lora module initialized, id: %d, net: %d", sensorID, netID);
 
   accelWire.begin();
   if (!accel.begin(ACCEL_DEFAULT_ADR, accelWire))
@@ -63,6 +61,18 @@ inline uint8_t calculateChecksum(uint8_t *data, size_t size)
   }
   return checksum;
 }
+
+struct __attribute__((packed)) CollisionData
+{
+  uint8_t header = 0x69;
+  uint8_t ID = sensorID;
+  uint32_t acc2 = 0; // Acceleration squared
+  uint8_t checksum;
+};
+
+// Use an empty data message as a heartbeat
+static const CollisionData LORA_HEARTBEAT_DATA = {
+    .checksum = LORA_HEARTBEAT_DATA.header ^ LORA_HEARTBEAT_DATA.ID};
 
 void loop()
 {
@@ -113,16 +123,7 @@ void loop()
     {
       ULOG_INFO("Collision detected: %d", accAvr);
 
-      struct __attribute__((packed))
-      {
-        uint8_t header = 0x69;
-        uint8_t ID = sensorID;
-        uint32_t acc2; // Acceleration squared
-        uint8_t checksum;
-      } collisionData{
-          .acc2 = accSquared,
-      };
-
+      CollisionData collisionData{.acc2 = accSquared};
       collisionData.checksum = calculateChecksum(reinterpret_cast<uint8_t *>(&collisionData),
                                                  sizeof(collisionData) - 1);
 
@@ -135,7 +136,8 @@ void loop()
   if (millis() - lastSentHeartBeatTime > LORA_HEARTBEAT_INTERVAL &&
       millis() - lastSentDataTime > LORA_DATA_MIN_INTERVAL) // No need to send heartbeat if data is sent recently
   {
-    lora.sendP2P(LORA_DONGLE_ADDRESS, LORA_CHANNEL, LORA_HEARTBEAT_DATA);
+    lora.sendP2P(LORA_DONGLE_ADDRESS, LORA_CHANNEL,
+                 reinterpret_cast<const uint8_t *>(&LORA_HEARTBEAT_DATA), sizeof(LORA_HEARTBEAT_DATA));
     lastSentHeartBeatTime = millis();
   }
 
