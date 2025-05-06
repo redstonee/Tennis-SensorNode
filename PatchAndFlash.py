@@ -1,7 +1,27 @@
 from elftools.elf.elffile import ELFFile
+from pyocd.core.helpers import ConnectHelper
+from pyocd.flash.file_programmer import FileProgrammer
+from argparse import ArgumentParser
+
+
+parser = ArgumentParser(description="Patch and flash the Tennis-Dongle firmware.")
+parser.add_argument(
+    "--netid", type=int, required=True, help="The netID to patch. (0-80)"
+)
+parser.add_argument(
+    "--sensorid", type=int, required=True, help="The sensorID to patch. (0-15)"
+)
 from subprocess import Popen, STDOUT
 
-FILENAME = ".pio/build/genericSTM32G030C8/firmware.elf"
+parser.add_argument(
+    "--file",
+    action="store",
+    type=str,
+    default=".pio/build/genericSTM32G030C8/firmware.elf",
+    help="The path to the ELF file to patch. (default: .pio/build/genericSTM32G030C8/firmware.elf)",
+)
+args = parser.parse_args()
+
 DATA_SECTION_NAME = ".rodata"
 SENSOR_ID_NAME = "sensorID"
 NET_ID_NAME = "netID"
@@ -12,27 +32,17 @@ def fuckOff(code):
     exit(code)
 
 
-netID = 0
-sensorID = 0
-try:
-    netID = int(input("Enter the netID: "))
-    if netID < 0 or netID > 80:
-        print("netID must be between 0 and 80")
-        fuckOff(1)
-
-    sensorID = int(input("Enter the sensorID: "))
-    if sensorID < 0 or sensorID > 16:
-        print("sensorID must be between 0 and 16")
-        fuckOff(1)
-
-except ValueError:
-    print("Invalid input. Please enter a valid integer.")
+if args.netid < 0 or args.netid > 80:
+    print("netID must be between 0 and 80")
     fuckOff(1)
 
-print()
+if args.sensorid < 0 or args.sensorid > 15:
+    print("sensorID must be between 0 and 15")
+    fuckOff(1)
+
 
 try:
-    with open(FILENAME, "r+b") as fuckingFile:
+    with open(args.file, "r+b") as fuckingFile:
         elf = ELFFile(fuckingFile)
         dataSection = elf.get_section_by_name(DATA_SECTION_NAME)
         symtabSection = elf.get_section_by_name(".symtab")
@@ -81,11 +91,11 @@ try:
             fuckOff(1)
 
         fuckingFile.seek(netID_Offset)
-        fuckingFile.write(netID.to_bytes(1, byteorder="little"))
-        print("netID patched to {}".format(netID))
+        fuckingFile.write(args.netid.to_bytes(1, byteorder="little"))
+        print("netID patched to {}".format(args.netid))
         fuckingFile.seek(sensorID_Offset)
-        fuckingFile.write(sensorID.to_bytes(1, byteorder="little"))
-        print("sensorID patched to {}".format(sensorID))
+        fuckingFile.write(args.sensorid.to_bytes(1, byteorder="little"))
+        print("sensorID patched to {}".format(args.sensorid))
 
         fuckingFile.close()
 
@@ -95,22 +105,11 @@ except Exception as e:
     fuckOff(1)
 
 try:
-    flashCommand = [
-        "openocd",
-        "-f",
-        "interface/cmsis-dap.cfg",
-        "-f",
-        "target/stm32g0x.cfg",
-        "-c",
-        "program {} verify reset exit".format(FILENAME),
-    ]
-
-    flashProcess = Popen(flashCommand, stderr=STDOUT)
-    flashProcess.wait()
-    if flashProcess.returncode != 0:
-        print("Failed to flash the firmware")
-    else:
-        print("Firmware flashed successfully")
+    with ConnectHelper.session_with_chosen_probe(
+        options={"target_override": "stm32g030c8tx"}
+    ) as session:
+        FileProgrammer(session).program(args.file)
+        session.target.reset()
 
 except Exception as e:
     print("Failed to flash the firmware:", e)
