@@ -39,7 +39,7 @@ private:
         uint8_t cryptL;
     } moduleRegs;
 
-    static const ModuleRegs defaultRegs;
+    static ModuleRegs defaultRegs;
 
     inline uint8_t indexOfRegs(uint8_t &reg)
     {
@@ -140,7 +140,7 @@ private:
 
         uint8_t response[3];
         loraSerial.readBytes(response, 3);
-        if (response[0] != 0xC0)
+        if (response[0] != 0xC1)
             return false;
         if (response[1] != offset)
             return false;
@@ -225,6 +225,9 @@ public:
      */
     inline bool begin()
     {
+        // The ids are patched after building the firmware, so it is necessary to set them here
+        defaultRegs.addL = LORA_SENSOR_ADDRESS_BASE + sensorID;
+        defaultRegs.netId = netID;
         if (!readAllRegs())
         {
             ULOG_ERROR("Failed to read lora registers");
@@ -235,6 +238,8 @@ public:
         {
             ULOG_WARNING("Lora registers are different from saved config, applying the saved config");
             moduleRegs = defaultRegs;
+            moduleRegs.addL = LORA_SENSOR_ADDRESS_BASE + sensorID;
+            moduleRegs.netId = netID;
             if (!writeAllRegs())
             {
                 ULOG_ERROR("Failed to write lora registers");
@@ -361,13 +366,13 @@ public:
     void receive(char *data, int size) {}
 };
 
-const LoraModule::ModuleRegs LoraModule::defaultRegs = {
+LoraModule::ModuleRegs LoraModule::defaultRegs = {
     .addH = 0x00,
-    .addL = LORA_SENSOR_ADDRESS_BASE + sensorID,
-    .netId = netID,
+    .addL = 0x00,       // Will be set to the sensor ID + 0x10
+    .netId = 0x00,      // Will be set to the network ID
     .cfg0 = 0b01100000, // 9600bps, 8N1, 2.4kbps
     .cfg1 = 0b00100000, // 240 bytes, LDO, No RSSI, Max power
-    .channel = LORA_DONGLE_ADDRESS,
+    .channel = 0x14,
     .cfg3 = 0b01000000, // No RSSI, P2P mode, No relay, No LBT
     .cryptH = 0x00,
     .cryptL = 0x00,
