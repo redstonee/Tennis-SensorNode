@@ -7,15 +7,15 @@ namespace BattMon
 {
     constexpr auto SAMPLE_RATE = 50;
 
-    constexpr auto BUF_SIZE = 20;         // Size of the ADC buffer
-    static uint16_t adcBuf[BUF_SIZE]{0};  // Buffer to store ADC values
-    static uint8_t bufIndex = 0;          // Index for the ADC buffer
-    static bool bufferFull = false;       // Flag to indicate if the buffer is full
+    constexpr auto BUF_SIZE = 20;        // Size of the ADC buffer
+    static uint16_t adcBuf[BUF_SIZE]{0}; // Buffer to store ADC values
+    static uint8_t bufIndex = 0;         // Index for the ADC buffer
+    static bool bufferFull = false;      // Flag to indicate if the buffer is full
     static HardwareTimer adcTimer(TIM1); // Timer for ADC sampling
 
     /**
      * @brief Read the ADC value and store it in the buffer
-     * 
+     *
      */
     inline void readADC()
     {
@@ -29,7 +29,7 @@ namespace BattMon
 
     /**
      * @brief Start the ADC sampling
-     * 
+     *
      */
     void begin()
     {
@@ -64,8 +64,28 @@ namespace BattMon
     }
 
     /**
+     * @brief Get the battery level as a percentage
+     *
+     * @return int8_t Battery level in percentage, or -1 if the data is not ready
+     */
+    int8_t getLevel()
+    {
+        if (!bufferFull)
+        {
+            return -1;
+        }
+
+        auto voltage = getVoltage();
+        if (voltage < 3.0f)
+            return 0;
+        if (voltage > 4.2f)
+            return 100;
+        return static_cast<uint8_t>((voltage - 3.3f) / (4.2f - 3.3f) * 100);
+    }
+
+    /**
      * @brief Stop the ADC sampling
-     * 
+     *
      */
     void stop()
     {

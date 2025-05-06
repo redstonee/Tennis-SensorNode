@@ -66,23 +66,32 @@ struct __attribute__((packed)) CollisionData
 {
   uint8_t header = 0x69;
   uint8_t ID = sensorID;
-  uint32_t acc2 = 0; // Acceleration squared
+  uint32_t acc2 = 0;        // Acceleration squared
+  uint8_t batteryLevel = 0; // Battery level, 0-100%
   uint8_t checksum;
 };
 
-// Use an empty data message as a heartbeat
-static const CollisionData LORA_HEARTBEAT_DATA = {
-    .checksum = LORA_HEARTBEAT_DATA.header ^ LORA_HEARTBEAT_DATA.ID};
+CollisionData buildCollisionData(uint32_t acc2, uint8_t batteryLevel)
+{
+  CollisionData collisionData;
+  collisionData.acc2 = acc2;
+  collisionData.batteryLevel = batteryLevel;
+  collisionData.checksum = calculateChecksum(reinterpret_cast<uint8_t *>(&collisionData),
+                                             sizeof(collisionData) - 1);
+  return collisionData;
+}
 
 void loop()
 {
   // put your main code here, to run repeatedly:
-  auto batteryVoltage = BattMon::getVoltage();
+  auto batteryLevel = BattMon::getLevel();
 
+  // For voltage calibration
+  // auto batteryVoltage = BattMon::getVoltage();
   // ULOG_DEBUG("Battery voltage: "); //%f is unavailable with Arduino
   // Serial2.print(batteryVoltage);
   // Serial2.println(" V");
-  if (batteryVoltage > 0 && batteryVoltage < 3.4f)
+  if (batteryLevel > 0 && batteryLevel < 12)
   {
     BattMon::stop();
     ULOG_ERROR("Battery voltage is too low");
@@ -122,10 +131,7 @@ void loop()
     if (accAvr > ACC2_THRESHOLD)
     {
       ULOG_INFO("Collision detected: %d", accAvr);
-
-      CollisionData collisionData{.acc2 = accSquared};
-      collisionData.checksum = calculateChecksum(reinterpret_cast<uint8_t *>(&collisionData),
-                                                 sizeof(collisionData) - 1);
+      auto collisionData = buildCollisionData(accSquared, batteryLevel);
 
       lora.sendP2P(LORA_DONGLE_ADDRESS, LORA_CHANNEL,
                    reinterpret_cast<uint8_t *>(&collisionData), sizeof(collisionData));
@@ -136,8 +142,11 @@ void loop()
   if (millis() - lastSentHeartBeatTime > LORA_HEARTBEAT_INTERVAL &&
       millis() - lastSentDataTime > LORA_DATA_MIN_INTERVAL) // No need to send heartbeat if data is sent recently
   {
+    // Use a message with acc=0 as a heartbeat
+    auto heartbeatData = buildCollisionData(0, batteryLevel);
+
     lora.sendP2P(LORA_DONGLE_ADDRESS, LORA_CHANNEL,
-                 reinterpret_cast<const uint8_t *>(&LORA_HEARTBEAT_DATA), sizeof(LORA_HEARTBEAT_DATA));
+                 reinterpret_cast<const uint8_t *>(&heartbeatData), sizeof(heartbeatData));
     lastSentHeartBeatTime = millis();
   }
 
