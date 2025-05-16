@@ -238,8 +238,6 @@ public:
         {
             ULOG_WARNING("Lora registers are different from saved config, applying the saved config");
             moduleRegs = defaultRegs;
-            moduleRegs.addL = LORA_SENSOR_ADDRESS_BASE + sensorID;
-            moduleRegs.netId = netID;
             if (!writeAllRegs())
             {
                 ULOG_ERROR("Failed to write lora registers");
@@ -307,7 +305,7 @@ public:
     {
         loraSerial.write(addr >> 8);
         loraSerial.write(addr & 0xFF);
-        loraSerial.write(moduleRegs.channel);
+        loraSerial.write(channel);
         loraSerial.write(data, size);
     }
 
@@ -372,7 +370,7 @@ LoraModule::ModuleRegs LoraModule::defaultRegs = {
     .netId = 0x00,      // Will be set to the network ID
     .cfg0 = 0b01100000, // 9600bps, 8N1, 2.4kbps
     .cfg1 = 0b00100000, // 240 bytes, LDO, No RSSI, Max power
-    .channel = 0x14,
+    .channel = LORA_CHANNEL,
     .cfg3 = 0b01000000, // No RSSI, P2P mode, No relay, No LBT
     .cryptH = 0x00,
     .cryptL = 0x00,

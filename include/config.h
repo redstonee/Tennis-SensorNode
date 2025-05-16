@@ -27,4 +27,4 @@ constexpr uint8_t LORA_SENSOR_ADDRESS_BASE = 0x10; // Default address of the sen
 
 constexpr uint8_t LORA_CHANNEL = 45;           // Channel of the nodes
 constexpr auto LORA_DATA_MIN_INTERVAL = 1000;  // Minimum interval between data packets in ms
-constexpr auto LORA_HEARTBEAT_INTERVAL = 3000; // Heartbeat interval in ms
+constexpr auto LORA_HEARTBEAT_INTERVAL = 8000; // Heartbeat interval in ms
